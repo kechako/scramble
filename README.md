@@ -22,8 +22,8 @@ import (
 )
 
 func main() {
-    // scramble salt is randomly generated
-    // use NewScrambler32WithSalt if you want to specify a salt
+	// scramble salt is randomly generated
+	// use NewScrambler32WithSalt if you want to specify a salt
 	s := scramble.NewScrambler32()
 
 	scrambled := s.Scramble(1234)
