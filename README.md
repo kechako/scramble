@@ -1,5 +1,7 @@
 # scramble
 
+[![GoDoc](https://godoc.org/github.com/kechako/scramble?status.svg)](https://godoc.org/github.com/kechako/scramble)
+
 scramble is a golang package that scramble integer numbers.
 
 ## Instlation
