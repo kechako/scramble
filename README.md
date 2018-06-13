@@ -4,7 +4,7 @@
 
 scramble is a golang package that scramble integer numbers.
 
-## Instlation
+## Installation
 
 ``` console
 go get github.com/kechako/scramble
