@@ -56,17 +56,17 @@ func scrambleNumber(bits int, hex bool, args []string) (int, error) {
 	var scrambled uint64
 	switch bits {
 	case 8:
-		s := scramble.NewScrambler8WithSalt(uint8(salt))
-		scrambled = uint64(s.Scramble(uint8(num)))
+		scrambled, err = scrambleWrapper(uint8(salt), uint8(num))
 	case 16:
-		s := scramble.NewScrambler16WithSalt(uint16(salt))
-		scrambled = uint64(s.Scramble(uint16(num)))
+		scrambled, err = scrambleWrapper(uint16(salt), uint16(num))
 	case 32:
-		s := scramble.NewScrambler32WithSalt(uint32(salt))
-		scrambled = uint64(s.Scramble(uint32(num)))
+		scrambled, err = scrambleWrapper(uint32(salt), uint32(num))
 	case 64:
-		s := scramble.NewScrambler64WithSalt(salt)
-		scrambled = s.Scramble(num)
+		scrambled, err = scrambleWrapper(uint64(salt), uint64(num))
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to scramble: %v\n", err)
+		return 1, nil
 	}
 
 	var format string
@@ -81,20 +81,35 @@ func scrambleNumber(bits int, hex bool, args []string) (int, error) {
 	return 0, nil
 }
 
+func scrambleWrapper[T scramble.Type](salt T, v T) (uint64, error) {
+	s, err := scramble.NewScramblerWithSalt(salt)
+	if err != nil {
+		return 0, err
+	}
+	return uint64(s.Scramble(v)), nil
+}
+
 func generateSalt(bits int, hex bool) (int, error) {
 	var salt uint64
+	var err error
 	switch bits {
 	case 8:
-		s, _ := scramble.GenRandomSalt8()
+		var s uint8
+		s, err = scramble.GenRandomSalt[uint8]()
 		salt = uint64(s)
 	case 16:
-		s, _ := scramble.GenRandomSalt16()
+		var s uint16
+		s, err = scramble.GenRandomSalt[uint16]()
 		salt = uint64(s)
 	case 32:
-		s, _ := scramble.GenRandomSalt32()
+		var s uint32
+		s, err = scramble.GenRandomSalt[uint32]()
 		salt = uint64(s)
 	case 64:
-		salt, _ = scramble.GenRandomSalt64()
+		salt, err = scramble.GenRandomSalt[uint64]()
+	}
+	if err != nil {
+		return 1, err
 	}
 
 	var format string

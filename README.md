@@ -6,13 +6,13 @@ scramble is a golang package that scramble integer numbers.
 
 ## Installation
 
-``` console
+```console
 go get github.com/kechako/scramble
 ```
 
 ## Usage
 
-``` golang
+```golang
 package main
 
 import (
@@ -23,8 +23,11 @@ import (
 
 func main() {
 	// scramble salt is randomly generated
-	// use NewScrambler32WithSalt if you want to specify a salt
-	s := scramble.NewScrambler32()
+	// use NewScramblerWithSalt if you want to specify a salt
+	s, err := scramble.NewScrambler[uint32]()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	scrambled := s.Scramble(1234)
 	fmt.Println(scrambled)
