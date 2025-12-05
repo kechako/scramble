@@ -2,131 +2,110 @@
 package scramble
 
 import (
+	"crypto/aes"
 	"crypto/rand"
-	"encoding/binary"
-	"errors"
-	"fmt"
-	"math/big"
-	"math/bits"
+	"strconv"
 	"unsafe"
+
+	"gitlab.com/ubiqsecurity/ubiq-go/v2/structured"
 )
 
+// A Type is a constraint for unsigned integer types.
 type Type interface {
-	~uint8 | ~uint16 | ~uint32 | ~uint64
+	~uint32 | ~uint64
 }
 
-// GenRandomSalt randomly generates a salt used by scrambler.
-// The salt is an unsigned integer type.
-func GenRandomSalt[T Type]() (T, error) {
-	var salt T
-	// salt should be grater than 1 and
-	// salt must be an odd number
-	for salt <= 1 || salt&0x01 == 0 {
-		err := binary.Read(rand.Reader, binary.BigEndian, &salt)
-		if err != nil {
-			return 0, fmt.Errorf("failed to read random byte: %w", err)
-		}
-	}
-
-	return salt, nil
-}
-
-// GenSaltInverse returns a inverse of the salt.
-// The salt and the inverse is an unsigned integer type.
-func GenSaltInverse[T Type](salt T) (T, error) {
-	inv, err := genSaltInverse(new(big.Int).SetUint64(uint64(salt)), getBits[T]())
-	if err != nil {
-		return 0, err
-	}
-	return T(inv.Uint64()), nil
-}
-
-func getBits[T Type]() int {
-	var zero T
-	return int(unsafe.Sizeof(zero)) * 8
-}
-
-func genSaltInverse(salt *big.Int, bits int) (*big.Int, error) {
-	if salt == nil {
-		return nil, errors.New("salt is nil")
-	}
-
-	switch bits {
-	case 8, 16, 32, 64:
-		// ok
+// GenerateKey generates a random key of the given size in bytes.
+// The size must be either 16, 24, or 32.
+func GenerateKey(size int) ([]byte, error) {
+	switch size {
 	default:
-		return nil, errors.New("invalid bits")
+		return nil, aes.KeySizeError(size)
+	case 16, 24, 32:
 	}
 
-	if salt.Bit(0) == 0 {
-		return nil, errors.New("salt is not an odd number")
-	}
-
-	mod := new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(bits)), nil)
-
-	return new(big.Int).ModInverse(salt, mod), nil
+	key := make([]byte, size)
+	_, err := rand.Read(key)
+	return key, err
 }
 
 // Scrambler scrambles unsigned integers.
 type Scrambler[T Type] struct {
-	salt    T
-	inv     T
-	reverse func(T) T
+	ff1 *structured.FF1
 }
 
-// NewScrambler returns a new *Scramble[T] with random salt and its inverse.
-func NewScrambler[T Type]() (*Scrambler[T], error) {
-	salt, err := GenRandomSalt[T]()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate random salt: %w", err)
+// NewScrambler returns a new *Scramble[T].
+// The key argument must be the AES key, either 16, 24, or 32 bytes to select AES-128, AES-192, or AES-256.
+func NewScrambler[T Type](key []byte) (*Scrambler[T], error) {
+	switch k := len(key); k {
+	default:
+		return nil, aes.KeySizeError(k)
+	case 16, 24, 32:
 	}
 
-	return NewScramblerWithSalt(salt)
-}
-
-// NewScramblerWithSalt returns a new *Scramble[T] with the salt and its inverse.
-func NewScramblerWithSalt[T Type](salt T) (*Scrambler[T], error) {
-	inv, err := GenSaltInverse(salt)
+	ff1, err := structured.NewFF1(key[:], nil, 0, 0, 16)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate salt inverse: %w", err)
+		return nil, err
 	}
 
 	return &Scrambler[T]{
-		salt:    salt,
-		inv:     inv,
-		reverse: getReverse[T](),
+		ff1: ff1,
 	}, nil
 }
 
-func getReverse[T Type]() func(T) T {
-	var v T
-	switch any(v).(type) {
-	case uint8:
-		return func(v T) T {
-			return T(bits.Reverse8(uint8(v)))
-		}
-	case uint16:
-		return func(v T) T {
-			return T(bits.Reverse16(uint16(v)))
-		}
-	case uint32:
-		return func(v T) T {
-			return T(bits.Reverse32(uint32(v)))
-		}
-	default:
-		return func(v T) T {
-			return T(bits.Reverse64(uint64(v)))
-		}
+// Scramble scrambles the given value v.
+func (s *Scrambler[T]) Scramble(v T) (T, error) {
+	var buf [16]byte
+	hex := appendHex(buf[:0], v)
+
+	e, err := s.ff1.Encrypt(string(hex), nil)
+	if err != nil {
+		return 0, err
 	}
+	vv, err := strconv.ParseUint(e, 16, bitLen[T]())
+	if err != nil {
+		return 0, err
+	}
+	return T(vv), nil
 }
 
-// Scramble scrambles v.
-func (s *Scrambler[T]) Scramble(v T) T {
-	v *= s.salt
+// Unscramble unscrambles the given value v.
+func (s *Scrambler[T]) Unscramble(v T) (T, error) {
+	var buf [16]byte
+	hex := appendHex(buf[:0], v)
 
-	v = s.reverse(v)
+	e, err := s.ff1.Decrypt(string(hex), nil)
+	if err != nil {
+		return 0, err
+	}
+	vv, err := strconv.ParseUint(e, 16, bitLen[T]())
+	if err != nil {
+		return 0, err
+	}
+	return T(vv), nil
+}
 
-	v *= s.inv
+const hexTable = "0123456789abcdef"
 
-	return v
+func appendHex[T Type](dst []byte, v T) []byte {
+	n := len(dst)
+	l := hexLen[T]()
+	dst = dst[:n+l]
+
+	for i := l - 1; i >= 0; i-- {
+		dst[n+i] = hexTable[v&0x0f]
+		v >>= 4
+	}
+
+	return dst
+}
+
+func bitLen[T Type]() int {
+	var zero T
+	return int(unsafe.Sizeof(zero)) * 8
+}
+
+func hexLen[T Type]() int {
+	var zero T
+	return int(unsafe.Sizeof(zero)) * 2
 }

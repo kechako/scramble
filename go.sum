@@ -1,0 +1,6 @@
+github.com/urfave/cli/v3 v3.6.1 h1:j8Qq8NyUawj/7rTYdBGrxcH7A/j7/G8Q5LhWEW4G3Mo=
+github.com/urfave/cli/v3 v3.6.1/go.mod h1:ysVLtOEmg2tOy6PknnYVhDoouyC/6N42TMeoMzskhso=
+gitlab.com/ubiqsecurity/ubiq-go/v2 v2.2.9 h1:0FB403iWjMxHaK4iqaVbtHh0hfcbn4Ks/diJyNQdt1E=
+gitlab.com/ubiqsecurity/ubiq-go/v2 v2.2.9/go.mod h1:0x7msTZnY2W4A+BNRtmQQ74fTv2UL1mjQ1Kap7H3J/8=
+golang.org/x/exp v0.0.0-20231006140011-7918f672742d h1:jtJma62tbqLibJ5sFQz8bKtEM8rJBtfilJ2qTU199MI=
+golang.org/x/exp v0.0.0-20231006140011-7918f672742d/go.mod h1:ldy0pHrwJyGW56pPQzzkH36rKxoZW1tw7ZJpeKx+hdo=

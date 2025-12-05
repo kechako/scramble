@@ -1,13 +1,15 @@
 # scramble
 
-[![GoDoc](https://godoc.org/github.com/kechako/scramble?status.svg)](https://godoc.org/github.com/kechako/scramble)
+[![GoDoc](https://godoc.org/github.com/kechako/scramble/v2?status.svg)](https://godoc.org/github.com/kechako/scramble/v2)
 
-scramble is a golang package that scramble integer numbers.
+scramble is a Go library that performs format-preserving scrambling and unscrambling of numeric values using the FF1 FPE algorithm.
+It provides simple APIs that take and return uint32 or uint64, enabling reversible obfuscation while preserving the original numeric format.
+This makes it well suited for anonymization, tokenization, and other use cases where fixed-size numeric identifiers must remain valid.
 
 ## Installation
 
 ```console
-go get github.com/kechako/scramble
+go get github.com/kechako/scramble/v2
 ```
 
 ## Usage
@@ -17,23 +19,35 @@ package main
 
 import (
 	"fmt"
+	"log"
 
-	"github.com/kechako/scramble"
+	scramble "github.com/kechako/scramble/v2"
 )
 
 func main() {
-	// scramble salt is randomly generated
-	// use NewScramblerWithSalt if you want to specify a salt
-	s, err := scramble.NewScrambler[uint32]()
+	// Generate a random key
+	key, err := scramble.GenerateKey(16)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	scrambled := s.Scramble(1234)
-	fmt.Println(scrambled)
-	// 4085920800
+	// Create a scrambler for uint32 using the generated key
+	s, err := scramble.NewScrambler[uint32](key)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	unscrambled := s.Scramble(scrambled)
+	scrambled, err := s.Scramble(1234)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(scrambled)
+	// e.g. 4085920800
+
+	unscrambled, err := s.Unscramble(scrambled)
+	if err != nil {
+		log.Fatal(err)
+	}
 	fmt.Println(unscrambled)
 	// 1234
 }
